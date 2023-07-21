@@ -1,0 +1,114 @@
+
+hydra:
+  run:
+    dir: ./outputs/generate/auto_${now:%Y_%m_%d_%H_%M_%S}
+
+  sweep:
+    dir: ./outputs/generate/
+    subdir: auto_${now:%Y_%m_%d_%H_%M_%S}_${hydra.job.num}
+
+  output_subdir: "generate_config"
+
+dataset_name: null # cbench,mibench
+benchmark_exclude: null # comma separated keywords for exclusion, e.g., ghostscript,sort
+benchmark_repeat: 80
+seed: 0
+get_stat: null # only query benchmarks statistics
+load_benchmarks_from_json: null
+json_key: null  # json key of the data split, e.g., 'test-small'
+num_benchmarks: null  # if set, will try to use first `num_benchmarks` benchmarks
+reset_best_return_on_every_episode: False  # if set true and benchmark_repeat > 1 and using the offline file (generate_utils.py), best return will be overwritten
+online_update_vocab: False  # if True, update the common vocab on the fly if unknown token is encountered
+graph_version: 0  # 0 for old graph type, 1 for new graph type
+
+# Output db control
+# if null, then we won't save db
+outdir: null
+
+vocab_db_path: null
+
+# Run time control
+patience: 30  # for offline data generation
+runtime_per_job: 600
+max_step_per_job: 10000
+nproc: null # if null, use cpu_count()
+max_episodes: null
+
+# Models
+model_path: null
+gpu: 0 # null = cpu, or use a list (e.g. [0,1]) to specify multiple GPUs
+eps: 0 # episilon greedy
+T: 0  # Temperature used for sampling. If T = 0, then we do argmax
+best_n: 1  # best n in A*
+use_Astar: False  # use this option (instead of setting best_n) to control whether to use A*
+use_AQ: False  # use the AQ* as in https://arxiv.org/pdf/2102.04518.pdf
+use_policy: False
+
+# how long to wait before flushing buffer into database
+commit_frequency_in_seconds: 300
+max_state_buffer_length: 1000
+
+# use submitit to send the tasks to other nodes instead of running locally
+submitit:
+  log_dir: null
+  partition: learnlab
+  timeout_min: 300
+  jobs_per_task: 80
+  cpus_per_task: 80
+  mem_gb: 500
+  gpus_per_node: 8
+  constraint: volta32gb
+
+traj_data: null  # read feather file and follow the trajectories therein, to replace offline random exploration
+
+divided_by_this_ir: False  # for A* / AQ*, set this flag properly to get the correct estimation of future reward
+
+# all parameters below are basically for online learning
+generate_v4: False
+device: cuda
+traj_last_n: 5  # the number of last transitions to cut off
+reward_discount: 0.9
+model_db_path: null
+return_lower_bound: -1
+n_model_workers: 8
+use_autophase: False
+
+# aggreate the jobs for a single forward pass in the neural network
+model_capacity: 512  # influence the waiting time for an item in the queue, either the #nodes (for graphs) or the batch size (for autophase)
+load_full_rate: 0.8
+job_full_rate: 0.8
+wait_time: 0.1
+
+load_model_frequency: 30
+avg_last_n_scores: 100
+
+min_ir: 100
+max_ir: 10000
+use_history: false
+run_model_locally: false  # if true, the model is in the same process as the environment
+GAE_lambda: 0.97  # the lambda for GAE-Lambda
+use_ppo: false
+
+norm_reward: true
+
+eval_on_policy: false
+model_rowid: null
+
+# for online testing
+online_test_json: null
+online_test_max_step: 50
+test_frequency_in_seconds: 3600
+
+# for creating socket that transfers data from generator to trainer
+send_data_via_socket: False
+
+use_only_anghabench: false  # for debugging purpose, only train on the Anghabench
+traj_db: null  # the path of a db where action sequences of benchmarks are stored
+for_reinforce: true  # use_ppo can overwrite this
+pydantic_datasource: null
+pydantic_val_dataset_path: null
+pydantic_test_dataset_path: null
+simple_generation: true
+early_stop_patience: 2
+min_per_benchmark: 0.05
+highest_reward: false

@@ -1,0 +1,203 @@
+
+hydra:
+  job:
+    config:
+      override_dirname:
+        exclude_keys:
+          - dataset.pydantic_dataset_path
+          - dataset.pydantic_dataset_path_dev
+          - dataset.train
+          - dataset.dev
+  run:
+    dir: ./outputs/autophase_q/${now:%Y_%m_%d_%H_%M_%S}_${hydra.job.override_dirname}/
+
+  sweep:
+    dir: ./outputs/autophase_q/
+    subdir: ${now:%Y_%m_%d_%H_%M_%S}_${hydra.job.override_dirname}
+
+ssl: False
+ssl_config:
+  rm_edges_perct: 0.2
+  rm_nodes_perct: 0.2
+  use_node_type_loss: False
+
+# finetuning parameters
+finetune:
+  ckpt: null
+  skip_ckpt: False
+  stage1:
+    epochs: 50
+    lr: 0.0002
+    wd: 1e-4
+  stage2:
+    epochs: 150
+    lr: 0.0001
+    wd: 1e-5
+load_ckpt: null  # load ckpt and then just like training from scratch
+
+# distributed training config
+distributed: True
+dist_eval: True
+world_size: 1  # number of distributed processes
+dist_url: env://  # url used to set up distributed training
+device: cuda  # device to use for training / testing
+rank: 0
+dist_backend: nccl
+seed: 0
+
+dataset:
+  num_workers: 4
+
+  train: data/all10k-train-medium-all10k-autophase.db
+  dev: data/all10k-val-medium-all10k-autophase.db
+  vocab: data/all_ssl_vocab.db
+
+  autophase_max_bin: 10
+
+  load_next_state: True
+  remove_large_graph: False
+  max_nodes: 500  # the max #nodes that fit in a GPU, tune this number to avoid CUDA OOM
+  full_rate: 0.95  # if load_balance, [max_nodes * full_rate] will be the minimum number of nodes for a bin to be considered full
+  load_balance: False  # whether to use load balance for distributed training
+  load_cumulative_reward2: False
+  pre_load: True  # whether to pre-load the data into memory
+  use_aggregated: False  # whether to use an aggregated dataset that merges same state together
+  divided_by_this_ir: False  # the denominator of the reward is set to the ir count of current state
+
+  # for new contrastive SSL
+  queue_size: 1000
+  min_queue_size: 1
+  # for data transfer via socket
+  send_data_via_socket: False
+  num_generators: 1
+
+  # for learning the immediate reward
+  q_learning: true
+  circulate_data: true  # for offline training. When set to `true`, it reuses the online training logic
+  cache_data: false
+  eval_data_len: 0  # set a positive number to do evaluation in offline training
+  num_records: 100000000000000  # for offline training
+  exclude_sets: null  # for offline training: training on only a subset of actions. Can be int/list
+  timeout: 0
+  random_mixup: 0  # mixup probability
+  weight_data_resample: false
+  real_q_learning: false  # for cummulative reward regression
+  dense_seq_cls: false  # path to db containing all_benchmark to all_seq rewards
+  pydantic_dataset_path: data/trajdataset_all10k-train-medium-all10k.json
+  pydantic_dataset_path_dev: data/trajdataset_all10k-val-medium-all10k.json
+  pydantic_dataset_path_test: data/benchmarkdataset_all-test.json
+  cp_db_to_mem: true
+  split: "all10k"
+  dense_cls_metric: oz
+  auto_batchsize: false
+  remove_type_graph: false
+
+# use submitit to send the tasks to other nodes instead of running locally
+submitit:
+  log_dir: null
+  partition: learnlab
+  timeout_min: 100
+  jobs_per_task: null
+  cpus_per_task: 10
+  gpus_per_node: 8
+  constraint: volta32gb
+  mem_gb: 500
+
+start_epoch: 0
+save_dir: "./"
+gpu: null 
+num_epoch: 100
+save_per_epoch: 10
+optim:
+  lr: 1e-4
+  weight_decay: 1e-5
+  lr_schedular: True
+  lr_schedular_steps: 0
+
+train_batch_size: 256 
+eval_batch_size: 256
+
+generate_v4: true
+model_db_path: null
+save_frequence: 200
+print_frequence: 200
+eval_frequence: 100
+warmup_steps: 500
+total_steps: 10000
+
+load_model_db: null
+sampling: false
+
+behavior_cloning: true
+seq_classification: False
+eval_model_rowid: False
+early_stop: true
+outdir: null
+
+model:
+  _target_: "rlcompopt.cl.models.gnn_pyg.CLSLearner"
+  mode: "pyg"
+  node_hidden_size: 256
+  use_node_embedding: False
+  use_action_embedding: False
+  use_autophase: true
+  autophase_dim: 56
+  n_steps: 1
+  n_etypes: 3
+  n_message_passes: 1
+  gnn_type: "EdgeAttn"
+  aggr: 'mean'
+  use_edge_embedding: False
+  use_flow_embedding: False
+  heads: null  # number of heads in multi-head attention for GAT
+  edge_emb_dim: 0
+  max_edge_position: 64
+  graph_version: 1
+  feat_drop: 0.0
+  concat_intermediate: False
+  discount_factor: 0.9
+  update_frequence: 150
+  zero_terminal_reward: False
+  node_level_action: False
+  bootstrap_q_learning: False  # use TD learning with bootstrap (update online net with target net)
+  num_actions: 50
+  use_subgraph_feature: False  # estimate action-value based on subgraphs
+  subgraph: "function"
+  use_fc: False
+  use_relu: False  # can be string like "nn.GELU" to specify other activations
+  use_reversed_edge: False  # False, 1/True (add back edges for control flows), 2 (add back edges for data flows)
+  on_policy_gradient: true
+  entropy_factor: 0.0003
+  use_history: false
+  use_reward_history: false
+  history_trans_heads: 4
+  # for PPO
+  use_value_function: false
+  use_ppo: false
+  clip_ratio: 0.2
+  target_kl: 0.01
+  num_local_updates: 1
+  use_reinforce: false
+  use_reward_only: false
+  use_reward_and_graph: false
+
+  # for new contrastive SSL
+  use_cl: false
+  ema_momentum: 0.99
+  temperature: 0.05
+  action_dim: 32
+
+  # for learning the immediate reward (online q_learning)
+  logit_temperature: 1
+  avg_instruct_nodes: true
+  num_heads: 4
+  adv_factor: 10.
+  no_state_obs: false  # blind model, zero the input states (but keep reward history / states to value approximation if any)
+  label_smoothing: 0
+  dense_label: true
+  type_graph: false
+  random_mixup: false
+  loss_mixup_coef: 0
+  norm_for_cls: mse
+  action_histogram_steps: 0
+  action_histogram_for_values: false
